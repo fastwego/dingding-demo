@@ -12,3 +12,8 @@ A demo project for fastwego/dingding
 - edit config in `.env.dist` file and rename to `.env`
 - run `dingding-demo` & view `http://localhost/api/dingding`
 - that's all & good luck ;)
+
+
+### 专项 demo
+
+- `ding-dong-bot` [README](ding-dong-bot/README.md)
