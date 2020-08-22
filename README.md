@@ -1,7 +1,11 @@
 ## dingding-demo 
 
-A demo project for fastwego/dingding
+A demo project for fastwego/dingding 
 
+[![powered-by-fastwego](https://img.shields.io/badge/Powered%20By-fastwego-brightgreen)](https://github.com/fastwego/dingding)
+
+
+### Install
 - checkout project `git clone https://github.com/fastwego/dingding-demo.git`
 - install fastwego/dingding `go get -u github.com/fastwego/dingding`
 - build `go build`
