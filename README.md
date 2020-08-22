@@ -2,7 +2,7 @@
 
 A demo project for fastwego/dingding 
 
-[![powered-by-fastwego](https://img.shields.io/badge/Powered%20By-fastwego-brightgreen)](https://github.com/fastwego/dingding)
+[![powered-by-fastwego](https://img.shields.io/badge/Powered%20By-fastwego-brightgreen)](https://github.com/fastwego)
 
 
 ### Install
