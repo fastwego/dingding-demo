@@ -16,4 +16,4 @@ A demo project for fastwego/dingding
 
 ### 专项 demo
 
-- `ding-dong-bot` [README](ding-dong-bot/README.md)
+- [ding-dong-bot](ding-dong-bot/README.md)
