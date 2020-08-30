@@ -14,6 +14,7 @@ A demo project for fastwego/dingding
 - that's all & good luck ;)
 
 
-### 专项 demo
+### use case demo
 
 - [ding-dong-bot](ding-dong-bot/README.md)
+- [打通微信和钉钉服务是一种怎样的体验？](weixin-dingding-translate/README.md)
