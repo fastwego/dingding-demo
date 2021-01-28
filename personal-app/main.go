@@ -24,6 +24,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/faabiosr/cachego/file"
+
 	"github.com/fastwego/dingding"
 
 	"github.com/gin-gonic/gin"
@@ -44,14 +46,19 @@ func init() {
 	}
 
 	// 钉钉 AccessToken 管理器
-	atm := dingding.NewAccessTokenManager(viper.GetString("AppKey"), "access_token", func() *http.Request {
-		params := url.Values{}
-		params.Add("appid", DingConfig["AppId"])
-		params.Add("appsecret", DingConfig["AppSecret"])
+	atm := &dingding.DefaultAccessTokenManager{
+		Id:   DingConfig["AppKey"],
+		Name: "access_token",
+		GetRefreshRequestFunc: func() *http.Request {
+			params := url.Values{}
+			params.Add("appid", DingConfig["AppId"])
+			params.Add("appsecret", DingConfig["AppSecret"])
 
-		req, _ := http.NewRequest(http.MethodGet, dingding.ServerUrl+"/sns/gettoken?"+params.Encode(), nil)
-		return req
-	})
+			req, _ := http.NewRequest(http.MethodGet, dingding.ServerUrl+"/sns/gettoken?"+params.Encode(), nil)
+			return req
+		},
+		Cache: file.New(os.TempDir()),
+	}
 
 	// 钉钉 客户端
 	DingClient = dingding.NewClient(atm)

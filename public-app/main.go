@@ -27,6 +27,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/faabiosr/cachego/file"
+
 	"github.com/fastwego/dingding/util"
 
 	"github.com/fastwego/dingding"
@@ -56,53 +58,64 @@ func init() {
 	}()
 
 	// 钉钉 AccessToken 管理器
-	atm := dingding.NewAccessTokenManager(DingConfig["SuiteKey"]+":"+authCorpId, "access_token", func() *http.Request {
-		// 自定义获取 suiteTicket
+	atm := &dingding.DefaultAccessTokenManager{
+		Id:    DingConfig["SuiteKey"],
+		Name:  "access_token",
+		Cache: file.New(os.TempDir()),
+		GetRefreshRequestFunc: func() *http.Request {
+			// 自定义获取 suiteTicket
 
-		suiteTicket := func() (suiteTicket string) {
-			return "suiteTicket"
-		}()
-		params := map[string]string{
-			"accessKey":    DingConfig["SuiteKey"],
-			"accessSecret": DingConfig["SuiteSecret"],
-			"suiteTicket":  suiteTicket,
-			"signature":    util.Signature(suiteTicket, DingConfig["SuiteSecret"]),
-			"auth_corpid":  authCorpId,
-		}
-		data, err := json.Marshal(params)
-		if err != nil {
-			panic(err)
-		}
+			suiteTicket := func() (suiteTicket string) {
+				return "suiteTicket"
+			}()
+			params := map[string]string{
+				"accessKey":    DingConfig["SuiteKey"],
+				"accessSecret": DingConfig["SuiteSecret"],
+				"suiteTicket":  suiteTicket,
+				"signature":    util.Signature(suiteTicket, DingConfig["SuiteSecret"]),
+				"auth_corpid":  authCorpId,
+			}
+			data, err := json.Marshal(params)
+			if err != nil {
+				panic(err)
+			}
 
-		log.Printf(string(data))
+			log.Printf(string(data))
 
-		req, _ := http.NewRequest(http.MethodPost, dingding.ServerUrl+"/service/get_corp_token", bytes.NewReader(data))
+			req, _ := http.NewRequest(http.MethodPost, dingding.ServerUrl+"/service/get_corp_token", bytes.NewReader(data))
 
-		return req
-	})
+			return req
+		},
+	}
+
 	// 钉钉 客户端
 	DingClient = dingding.NewClient(atm)
 
 	// 钉钉 SuiteAccessToken 管理器
-	satm := dingding.NewAccessTokenManager(DingConfig["SuiteKey"], "suite_access_token", func() *http.Request {
-		params := map[string]string{
-			"suite_key":    DingConfig["SuiteKey"],
-			"suite_secret": DingConfig["SuiteSecret"],
-			"suite_ticket": func() (suiteTicket string) {
-				return "suiteTicket"
-			}(),
-		}
-		data, err := json.Marshal(params)
-		if err != nil {
-			panic(err)
-		}
+	satm := &dingding.DefaultAccessTokenManager{
+		Id:    DingConfig["SuiteKey"],
+		Name:  "suite_access_token",
+		Cache: file.New(os.TempDir()),
+		GetRefreshRequestFunc: func() *http.Request {
+			params := map[string]string{
+				"suite_key":    DingConfig["SuiteKey"],
+				"suite_secret": DingConfig["SuiteSecret"],
+				"suite_ticket": func() (suiteTicket string) {
+					return "suiteTicket"
+				}(),
+			}
+			data, err := json.Marshal(params)
+			if err != nil {
+				panic(err)
+			}
 
-		log.Printf(string(data))
+			log.Printf(string(data))
 
-		req, _ := http.NewRequest(http.MethodPost, dingding.ServerUrl+"/service/get_suite_token", bytes.NewReader(data))
+			req, _ := http.NewRequest(http.MethodPost, dingding.ServerUrl+"/service/get_suite_token", bytes.NewReader(data))
 
-		return req
-	})
+			return req
+		},
+	}
 
 	DingClientSuite = dingding.NewClient(satm)
 
