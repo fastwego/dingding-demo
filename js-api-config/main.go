@@ -1,3 +1,17 @@
+// Copyright 2021 FastWeGo
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -8,6 +22,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,7 +30,6 @@ import (
 	"time"
 
 	"github.com/fastwego/dingding"
-	"github.com/fastwego/dingding/apis/auth"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -24,21 +38,36 @@ import (
 	"github.com/spf13/viper"
 )
 
-var App *dingding.App
+var DingClient *dingding.Client
+var DingConfig map[string]string
 
 func init() {
 	// 加载配置文件
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
 
-	App = dingding.NewApp(dingding.AppConfig{
-		CorpId:         viper.GetString("CorpId"),
-		AgentId:        viper.GetString("AgentId"),
-		AppKey:         viper.GetString("AppKey"),
-		AppSecret:      viper.GetString("AppSecret"),
-		Token:          viper.GetString("TOKEN"),
-		EncodingAESKey: viper.GetString("EncodingAESKey"),
+	DingConfig = map[string]string{
+		"CorpId":         viper.GetString("CorpId"),
+		"AgentId":        viper.GetString("AgentId"),
+		"AppKey":         viper.GetString("AppKey"),
+		"AppSecret":      viper.GetString("AppSecret"),
+		"Token":          viper.GetString("TOKEN"),
+		"EncodingAESKey": viper.GetString("EncodingAESKey"),
+	}
+
+	// 钉钉 AccessToken 管理器
+	atm := dingding.NewAccessTokenManager(DingConfig["AppKey"], "access_token", func() *http.Request {
+		params := url.Values{}
+		params.Add("appkey", DingConfig["AppKey"])
+		params.Add("appsecret", DingConfig["AppSecret"])
+		req, _ := http.NewRequest(http.MethodGet, dingding.ServerUrl+"/gettoken?"+params.Encode(), nil)
+
+		return req
 	})
+
+	// 钉钉 客户端
+	DingClient = dingding.NewClient(atm)
+
 }
 
 func main() {
@@ -78,10 +107,6 @@ func main() {
 }
 
 type User struct {
-	Userid string `json:"userid"`
-	Name   string `json:"name"`
-	Avatar string `json:"avatar"`
-
 	JsApiConfig template.JS `json:"js_api_config"`
 }
 
@@ -108,14 +133,6 @@ func Index(c *gin.Context) {
 
 func jsapiConfig(c *gin.Context) (config string, err error) {
 
-	session := sessions.Default(c)
-	jsapiConfig := session.Get("jsapiConfig")
-	jsapiConfig2, ok := jsapiConfig.(string)
-	if ok && len(jsapiConfig2) > 0 {
-		fmt.Println("cache jsapiConfig ", jsapiConfig2)
-		return jsapiConfig2, nil
-	}
-
 	TicketResp := struct {
 		Errcode   int    `json:"errcode"`
 		Errmsg    string `json:"errmsg"`
@@ -123,7 +140,8 @@ func jsapiConfig(c *gin.Context) (config string, err error) {
 		ExpiresIn int    `json:"expires_in"`
 	}{}
 
-	getJSApiTicket, err := auth.GetJSApiTicket(App)
+	req, _ := http.NewRequest(http.MethodGet, "/get_jsapi_ticket", nil)
+	getJSApiTicket, err := DingClient.Do(req)
 	if err != nil {
 		return
 	}
@@ -142,19 +160,13 @@ func jsapiConfig(c *gin.Context) (config string, err error) {
 	configMap := map[string]string{
 		"url":       pageUrl,
 		"nonceStr":  nonceStr,
-		"agentId":   App.Config.AgentId,
+		"agentId":   DingConfig["AgentId"],
 		"timeStamp": timeStamp,
-		"corpId":    App.Config.CorpId,
+		"corpId":    DingConfig["CorpId"],
 		"signature": signature,
 	}
 
 	marshal, err := json.Marshal(configMap)
-	if err != nil {
-		return
-	}
-
-	session.Set("jsapiConfig", string(marshal))
-	err = session.Save()
 	if err != nil {
 		return
 	}

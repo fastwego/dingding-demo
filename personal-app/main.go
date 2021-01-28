@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/fastwego/dingding"
-	"github.com/spf13/viper"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
 var DingClient *dingding.Client
@@ -39,54 +39,42 @@ func init() {
 	_ = viper.ReadInConfig()
 
 	DingConfig = map[string]string{
-		"CorpId":         viper.GetString("CorpId"),
-		"AgentId":        viper.GetString("AgentId"),
-		"AppKey":         viper.GetString("AppKey"),
-		"AppSecret":      viper.GetString("AppSecret"),
-		"Token":          viper.GetString("TOKEN"),
-		"EncodingAESKey": viper.GetString("EncodingAESKey"),
+		"AppId":     viper.GetString("AppId"),
+		"AppSecret": viper.GetString("AppSecret"),
 	}
 
 	// 钉钉 AccessToken 管理器
-	atm := dingding.NewAccessTokenManager(DingConfig["AppKey"], "access_token", func() *http.Request {
+	atm := dingding.NewAccessTokenManager(viper.GetString("AppKey"), "access_token", func() *http.Request {
 		params := url.Values{}
-		params.Add("appkey", DingConfig["AppKey"])
+		params.Add("appid", DingConfig["AppId"])
 		params.Add("appsecret", DingConfig["AppSecret"])
-		req, _ := http.NewRequest(http.MethodGet, dingding.ServerUrl+"/gettoken?"+params.Encode(), nil)
 
+		req, _ := http.NewRequest(http.MethodGet, dingding.ServerUrl+"/sns/gettoken?"+params.Encode(), nil)
 		return req
 	})
 
 	// 钉钉 客户端
 	DingClient = dingding.NewClient(atm)
-}
 
+}
 func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
 	// 调用接口
-	router.GET("/user/get_by_mobile", func(c *gin.Context) {
+	router.GET("/sns/get_persistent_code", func(c *gin.Context) {
 		params := url.Values{}
-		params.Add("mobile", "13800138000")
+		params.Add("tmp_auth_code", "13800138000")
 
-		req, _ := http.NewRequest(http.MethodGet, "/user/get_by_mobile?"+params.Encode(), nil)
+		req, _ := http.NewRequest(http.MethodGet, "/sns/get_persistent_code?"+params.Encode(), nil)
 		get, err := DingClient.Do(req)
-
 		if err != nil {
 			log.Println(err)
 			return
 		}
 		log.Println(string(get))
 	})
-
-	// 事件回调
-	router.POST("/api/dingding/callback", Callback)
-
-	// 文件上传
-	router.GET("/api/upload/single", UploadSingle)
-	router.GET("/api/upload/chunk", UploadChunk)
 
 	svr := &http.Server{
 		Addr:    viper.GetString("LISTEN"),

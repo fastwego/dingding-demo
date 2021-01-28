@@ -1,6 +1,21 @@
+// Copyright 2021 FastWeGo
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/gob"
 	"encoding/json"
@@ -15,11 +30,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/fastwego/dingding/apis/message"
-
-	"github.com/fastwego/dingding/apis/auth"
-	"github.com/fastwego/dingding/apis/contact/user"
-
 	"github.com/fastwego/dingding"
 
 	"github.com/gin-contrib/sessions"
@@ -29,21 +39,37 @@ import (
 	"github.com/spf13/viper"
 )
 
-var App *dingding.App
+var DingClient *dingding.Client
+var DingConfig map[string]string
 
 func init() {
 	// 加载配置文件
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
 
-	App = dingding.NewApp(dingding.AppConfig{
-		CorpId:         viper.GetString("CorpId"),
-		AgentId:        viper.GetString("AgentId"),
-		AppKey:         viper.GetString("AppKey"),
-		AppSecret:      viper.GetString("AppSecret"),
-		Token:          viper.GetString("TOKEN"),
-		EncodingAESKey: viper.GetString("EncodingAESKey"),
+	DingConfig = map[string]string{
+		"CorpId":         viper.GetString("CorpId"),
+		"AgentId":        viper.GetString("AgentId"),
+		"AppKey":         viper.GetString("AppKey"),
+		"AppSecret":      viper.GetString("AppSecret"),
+		"Token":          viper.GetString("TOKEN"),
+		"EncodingAESKey": viper.GetString("EncodingAESKey"),
+	}
+
+	// 钉钉 AccessToken 管理器
+	atm := dingding.NewAccessTokenManager(viper.GetString("AppKey"), "access_token", func() *http.Request {
+		params := url.Values{}
+		params.Add("appkey", DingConfig["AppKey"])
+		params.Add("appsecret", DingConfig["AppSecret"])
+
+		request, _ := http.NewRequest(http.MethodGet, dingding.ServerUrl+"/gettoken?"+params.Encode(), nil)
+		return request
+
 	})
+
+	// 钉钉 客户端
+	DingClient = dingding.NewClient(atm)
+
 }
 
 func main() {
@@ -99,7 +125,7 @@ func Index(c *gin.Context) {
 
 	loginUser, ok := user.(User)
 	if !ok {
-		loginUser = User{CorpId: App.Config.CorpId}
+		loginUser = User{CorpId: DingConfig["CorpId"]}
 	}
 
 	join := c.Query("join")
@@ -128,7 +154,7 @@ func Index(c *gin.Context) {
 			UseridList string `json:"userid_list"`
 			Msg        Msg    `json:"msg"`
 		}{
-			AgentId:    App.Config.AgentId,
+			AgentId:    DingConfig["AgentId"],
 			UseridList: loginUser.Userid,
 		}
 		data.Msg = msg
@@ -139,7 +165,9 @@ func Index(c *gin.Context) {
 			return
 		}
 
-		resp, err := message.AsyncsendV2(App, payload)
+		req, _ := http.NewRequest(http.MethodPost, "/topapi/message/corpconversation/asyncsend_v2", bytes.NewReader(payload))
+		resp, err := DingClient.Do(req)
+
 		fmt.Println(string(resp), err)
 
 		loginUser.Message = "报名成功~"
@@ -166,8 +194,10 @@ func Login(c *gin.Context) {
 	// 获取用户身份
 	params := url.Values{}
 	params.Add("code", code)
-	userInfo, err := auth.GetUserInfo(App, params)
-	fmt.Println(userInfo, err)
+
+	req, _ := http.NewRequest(http.MethodGet, "/user/getuserinfo?"+params.Encode(), nil)
+	userInfo, err := DingClient.Do(req)
+	log.Println(string(userInfo), err)
 	if err != nil {
 		return
 	}
@@ -189,7 +219,8 @@ func Login(c *gin.Context) {
 	// 获取员工详细信息
 	params = url.Values{}
 	params.Add("userid", UserInfo.Userid)
-	resp, err := user.Get(App, params)
+	req, _ = http.NewRequest(http.MethodGet, "/user/get?"+params.Encode(), nil)
+	resp, err := DingClient.Do(req)
 	fmt.Println(string(resp), err)
 	if err != nil {
 		return
@@ -202,7 +233,7 @@ func Login(c *gin.Context) {
 		fmt.Println(err)
 		return
 	}
-	user.CorpId = App.Config.CorpId
+	user.CorpId = DingConfig["CorpId"]
 
 	// 记录 Session
 	gob.Register(User{})

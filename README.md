@@ -13,8 +13,11 @@ A demo project for fastwego/dingding
 - that's all & good luck ;)
 
 ### use case demo
-
-- [ding-dong-bot](ding-dong-bot/README.md)
-- [打通微信和钉钉服务是一种怎样的体验？](https://github.com/fastwego/offiaccount-demo/tree/master/weixin-dingding-translate)
-- [登录 & 活动报名](./login-app/README.md)
-- [JSAPI 鉴权](./js-api-config/main.go)
+- 企业内部应用：
+    - [ding-dong-bot](ding-dong-bot/README.md)
+    - [打通微信和钉钉服务是一种怎样的体验？](https://github.com/fastwego/offiaccount-demo/tree/master/weixin-dingding-translate)
+    - [登录 & 活动报名](./login-app/README.md)
+    - [JSAPI 鉴权](./js-api-config/main.go)
+    
+- [第三方个人应用](./personal-app)
+- [第三方企业应用](./public-app)
